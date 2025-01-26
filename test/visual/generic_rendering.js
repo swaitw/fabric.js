@@ -1,37 +1,38 @@
 (function() {
   var getFixture;
-  if (fabric.isLikelyNode) {
+  if (isNode()) {
     if (process.env.launcher === 'Firefox') {
-      fabric.browserShadowBlurConstant = 0.9;
+      fabric.config.configure({ browserShadowBlurConstant: 0.9 });
     }
     if (process.env.launcher === 'Node') {
-      fabric.browserShadowBlurConstant = 1;
+      fabric.config.configure({ browserShadowBlurConstant: 1 });
     }
     if (process.env.launcher === 'Chrome') {
-      fabric.browserShadowBlurConstant = 1.5;
+      fabric.config.configure({ browserShadowBlurConstant: 1.5 });
     }
     if (process.env.launcher === 'Edge') {
-      fabric.browserShadowBlurConstant = 1.75;
+      fabric.config.configure({ browserShadowBlurConstant: 1.75 });
     }
     getFixture = global.getFixture;
   }
   else {
     if (navigator.userAgent.indexOf('Firefox') !== -1) {
-      fabric.browserShadowBlurConstant = 0.9;
+      fabric.config.configure({ browserShadowBlurConstant: 0.9 });
     }
     if (navigator.userAgent.indexOf('Chrome') !== -1) {
-      fabric.browserShadowBlurConstant = 1.5;
+      fabric.config.configure({ browserShadowBlurConstant: 1.5 });
     }
     if (navigator.userAgent.indexOf('Edge') !== -1) {
-      fabric.browserShadowBlurConstant = 1.75;
+      fabric.config.configure({ browserShadowBlurConstant: 1.75 });
     }
     getFixture = window.getFixture;
   }
-  fabric.enableGLFiltering = false;
-  fabric.isWebglSupported = false;
-  fabric.Object.prototype.objectCaching = true;
+  fabric.config.configure({
+    enableGLFiltering: false
+  });
+  fabric.Object.ownDefaults.objectCaching = true;
   var visualTestLoop;
-  if (fabric.isLikelyNode) {
+  if (isNode()) {
     visualTestLoop = global.visualTestLoop;
   }
   else {
@@ -63,6 +64,50 @@
     percentage: 0.09,
     width: 150,
     height: 60,
+  });
+
+  function renderStrokeWithNegativeScale(canvas, callback) {
+    var rect = new fabric.Rect({
+      width: 10,
+      height: 10,
+      fill: 'transparent',
+      stroke: 'blue',
+      strokeWidth: 15,
+      strokeUniform: true,
+      strokeDashArray: [2, 2],
+      top: 65,
+      left: 30,
+    });
+    // do not do this at init time or they will be positive
+    rect.scaleX = -2;
+    rect.scaleY = -4;
+
+    var rect2 = new fabric.Rect({
+      width: 10,
+      height: 10,
+      fill: 'transparent',
+      stroke: 'red',
+      strokeWidth: 15,
+      scaleX: -2,
+      scaleY: -4,
+      strokeDashArray: [2, 2],
+      strokeUniform: true,
+      top: 10,
+      left: 55,
+    });
+    canvas.add(rect, rect2);
+    canvas.renderAll();
+    callback(canvas.lowerCanvasEl);
+  }
+
+  tests.push({
+    test: 'Rect with strokeUniform: true and negative scaling',
+    code: renderStrokeWithNegativeScale,
+    golden: 'strokeNegativeScale.png',
+    percentage: 0.011,
+    disabled: isNode(),
+    width: 100,
+    height: 100,
   });
 
   function shadownonscaling(canvas, callback) {
@@ -277,6 +322,76 @@
     });
   }
 
+  function bgOverlayVpt(canvas, callback) {
+    var rectbg = new fabric.Rect({
+      width: 300,
+      height: 300,
+      top: 0,
+      left: 0,
+      fill: 'rgba(255,0,0,0.5)',
+      canvas
+    });
+    var rectoverlay = new fabric.Rect({
+      width: 300,
+      height: 300,
+      top: 0,
+      left: 0,
+      fill: 'rgba(0,0,255,0.5)',
+      canvas,
+    });
+    canvas.overlayVpt = false;
+    canvas.backgroundVpt = false;
+    canvas.backgroundImage = rectbg;
+    canvas.overlayImage = rectoverlay;
+    canvas.setViewportTransform([0.1,0,0,0.1,7000,7000]);
+    canvas.renderAll();
+    callback(canvas.lowerCanvasEl);
+  }
+
+  tests.push({
+    test: 'bg-overlay and vpts',
+    code: bgOverlayVpt,
+    golden: 'bgOverlayVpt.png',
+    percentage: 0.04,
+    width: 300,
+    height: 300,
+  });
+
+  function bgOverlayRespectingVpt(canvas, callback) {
+    var rectbg = new fabric.Rect({
+      width: 300,
+      height: 300,
+      top: 0,
+      left: 0,
+      fill: 'rgba(255,0,0,0.5)',
+      canvas,
+    });
+    var rectoverlay = new fabric.Rect({
+      width: 300,
+      height: 300,
+      top: 0,
+      left: 0,
+      fill: 'rgba(0,0,255,0.5)',
+      canvas,
+    });
+    canvas.overlayVpt = true;
+    canvas.backgroundVpt = true;
+    canvas.backgroundImage = rectbg;
+    canvas.overlayImage = rectoverlay;
+    canvas.setViewportTransform([0.9,0,0,0.9,150,150]);
+    canvas.renderAll();
+    callback(canvas.lowerCanvasEl);
+  }
+
+  tests.push({
+    test: 'bg-overlay and vpts applied',
+    code: bgOverlayRespectingVpt,
+    golden: 'bgOverlayRespectVpt.png',
+    percentage: 0.04,
+    width: 300,
+    height: 300,
+  });
+
   tests.push({
     test: 'canvas with background pattern and export',
     code: canvasPattern,
@@ -330,6 +445,25 @@
     percentage: 0.09,
     width: 800,
     height: 400,
+  });
+
+  function toCanvasElementAndControls(fabricCanvas, callback) {
+    var rect = new fabric.Rect({ width: 200, height: 200, left: 50, top: 50, fill: 'yellow' });
+    var canvas = new fabric.Canvas();
+    canvas.add(rect);
+    canvas.setDimensions({ width: 300, height: 300 });
+    canvas.setActiveObject(rect);
+    callback(canvas.toCanvasElement());
+  }
+
+  tests.push({
+    test: 'fabric.Canvas will not export controls',
+    code: toCanvasElementAndControls,
+    // use the same golden on purpose
+    golden: 'toCanvasElementAndControls.png',
+    percentage: 0.02,
+    width: 300,
+    height: 300,
   });
 
   function pathWithGradient(canvas, callback) {
@@ -402,7 +536,8 @@
     code: gradientStroke,
     golden: 'gradientStroke.png',
     newModule: 'Gradient stroke',
-    percentage: 0.02,
+    // loose diff because firefox
+    percentage: 0.04,
     width: 300,
     height: 300,
   });
@@ -456,6 +591,128 @@
     percentage: 0.04,
     width: 300,
     height: 100,
+  });
+
+  function polygonAndPaths(canvas, callback) {
+    canvas.backgroundColor = 'yellow'
+    for (let i = 0; i < 30; i++) {
+      var line = new fabric.Line([i, 0, i, 30], {
+        strokeWidth: 0.2,
+        stroke: 'lightgrey',
+        objectCaching: false,
+      });
+      var line2 = new fabric.Line([0, i, 30, i], {
+        strokeWidth: 0.2,
+        stroke: 'lightgrey',
+        objectCaching: false,
+      });
+      canvas.add(line);
+      canvas.add(line2);
+    }
+    const points = [{
+      x: 2,
+      y: 2,
+    }, {
+      x: 10,
+      y: 2,
+    }, {
+      x: 9,
+      y: 10,
+    }, {
+      x: 4,
+      y: 10,
+    }];
+    var polygon = new fabric.Polygon(points, {
+      strokeWidth: 2,
+      opacity: 0.5,
+      stroke: 'pink',
+      originX: 'right',
+      originY: 'top',
+      fill: '',
+      objectCaching: false,
+    });
+    var polygon2 = new fabric.Polygon(points, {
+      strokeWidth: 0.2,
+      stroke: 'black',
+      originX: 'left',
+      originY: 'bottom',
+      fill: '',
+      objectCaching: false,
+    });
+    var path = 'M 15 2 H 25 L 28 14 25 16 H 17 Z';
+    var path1 = new fabric.Path(path, {
+      strokeWidth: 2,
+      opacity: 0.5,
+      stroke: 'blue',
+      originX: 'right',
+      originY: 'top',
+      fill: '',
+      objectCaching: false,
+    });
+    var path2 = new fabric.Path(path, {
+      strokeWidth: 0.2,
+      stroke: 'black',
+      originX: 'left',
+      originY: 'bottom',
+      fill: '',
+      objectCaching: false,
+    });
+    var line1 = new fabric.Line([6, 22, 24, 22], {
+      strokeWidth: 2,
+      stroke: 'green',
+      originX: 'right',
+      originY: 'top',
+      opacity: 0.5,
+      objectCaching: false,
+    });
+    var line2 = new fabric.Line([6, 22, 24, 22], {
+      strokeWidth: 0.2,
+      stroke: 'black',
+      objectCaching: false,
+      originX: 'left',
+      originY: 'bottom',
+    });
+
+    var line3 = new fabric.Line([6, 26, 24, 26], {
+      strokeWidth: 2,
+      stroke: 'blue',
+      originX: 'right',
+      originY: 'top',
+      opacity: 0.5,
+      strokeLineCap: 'round'
+    });
+
+    var line4 = new fabric.Line([6, 26, 24, 26], {
+      strokeWidth: 0.2,
+      stroke: 'black',
+      objectCaching: false,
+      originX: 'left',
+      originY: 'bottom',
+    });
+
+    canvas.setZoom(10);
+    canvas.add(
+      polygon,
+      polygon2,
+      path1,
+      path2,
+      line1,
+      line2,
+      line3,
+      line4,
+    );
+    canvas.renderAll();
+    callback(canvas.lowerCanvasEl);
+  }
+
+  tests.push({
+    test: 'polygon and paths',
+    code: polygonAndPaths,
+    golden: 'polygonAndPaths.png',
+    newModule: 'Polygon and paths positioning',
+    percentage: 0.04,
+    width: 300,
+    height: 300,
   });
 
   tests.forEach(visualTestLoop(QUnit));

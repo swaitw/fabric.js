@@ -1,10 +1,11 @@
 (function() {
-  fabric.enableGLFiltering = false;
-  fabric.isWebglSupported = false;
-  fabric.Object.prototype.objectCaching = true;
+  fabric.config.configure({
+    enableGLFiltering: false
+  });
+  fabric.Object.ownDefaults.objectCaching = true;
   var visualTestLoop;
   var getAsset;
-  if (fabric.isLikelyNode) {
+  if (isNode()) {
     visualTestLoop = global.visualTestLoop;
     getAsset = global.getAsset;
   }
@@ -19,13 +20,15 @@
     }
     var test = function(canvas, callback) {
       getAsset(svgName, function(err, string) {
-        fabric.loadSVGFromString(string, function(objects, options) {
+        fabric.loadSVGFromString(string).then(({ objects, options }) => {
           // something is disabling objectCaching and i cannot find where it is.
-          var group = fabric.util.groupSVGElements(objects, options);
+          var nonNullObj = objects.filter(obj => !!obj);
+          var group = fabric.util.groupSVGElements(nonNullObj, options);
+          var dims = group._getTransformedDimensions()
+          canvas.setDimensions({ width: dims.x + group.left, height: dims.y + group.top });
           group.includeDefaultValues = false;
           canvas.includeDefaultValues = false;
           canvas.add(group);
-          canvas.setDimensions({ width: group.width + group.left, height: group.height + group.top });
           canvas.renderAll();
           callback(canvas.lowerCanvasEl);
         });
@@ -35,13 +38,15 @@
       test: 'Svg import test ' + svgName,
       code: test,
       golden: svgName + '.png',
-      percentage: 0.06,
+      percentage: 0.055,
     };
   }
 
   QUnit.module('Simple svg import test');
 
   var tests = [
+    'sharp-clip-test',
+    'sharp-clip-test2',
     'svg_stroke_1',
     'svg_stroke_2',
     'svg_stroke_3',
@@ -79,7 +84,7 @@
     'vector-effect',
     'svg-with-no-dim-rect',
     'notoemoji-person',
-    // 'clippath-8',
+    'clippath-8',
     'emoji-b',
     'gold-logo',
     'svg_missing_clippath',
@@ -93,7 +98,15 @@
     'cs',
     'qt',
     'generic-path',
-    '177'
+    '177',
+    'polygons',
+    'polygons-rounded',
+    'light-bulb',
+    'accordion',
+    'car',
+    'seaClipPath',
+    'use-and-style',
+    'use-svg-style-2',
   ].map(createTestFromSVG);
 
   tests.forEach(visualTestLoop(QUnit));
